@@ -8,6 +8,10 @@ Pay-per-request API using Coinbase's official x402 libraries with facilitator se
 
 From the project root:
 
+```bash
+npm install
+```
+
 ### Terminal 1: Start the Coinbase x402 server
 
 ```bash
@@ -22,13 +26,14 @@ npm run coinbase:client
 
 ## Overview
 
-This example demonstrates x402 payments using **Coinbase's official x402 implementation** with their facilitator service.
+This example demonstrates x402 payments using **Coinbase's official x402 libraries** (`x402-express` and `x402-axios`) with a facilitator service.
 
 **Key Features:**
 
 - **Gasless Payments** - Users don't need SOL for transaction fees (facilitator pays)
-- **Official Libraries** - Uses `x402-express` and `x402-axios` packages
+- **Official Libraries** - Uses `x402-express` and `x402-axios` packages from Coinbase
 - **Automatic Handling** - No manual transaction creation, signing, or verification
+- **Flexible Facilitator** - Works with default facilitator (used here), Coinbase's, or your own
 - **Production Ready** - Same libraries used in production systems
 
 ## Setup
@@ -40,29 +45,20 @@ cd ..  # Go to project root
 npm install
 ```
 
-### 2. Get CDP API Keys
+### 2. Configure Environment (Optional)
 
-The Coinbase facilitator requires API credentials from Coinbase Developer Platform:
-
-```bash
-# Visit https://portal.cdp.coinbase.com/
-# 1. Create an account or sign in
-# 2. Create a new API key
-# 3. Copy your API Key ID and Secret
-```
-
-**Note:** The free tier works for devnet testing!
-
-### 3. Configure Environment
-
-Create a `.env` file in the project root:
+By default, the server uses a hardcoded recipient address. To use your own address, create a `.env` file in the project root:
 
 ```bash
-# Optional: customize recipient address
-RECIPIENT_ADDRESS=seFkxFkXEY9JGEpCyPfCWTuPZG9WK6ucf95zvKCfsRX
+# Optional: Use your own recipient address for payments
+RECIPIENT_ADDRESS=YOUR_SOLANA_ADDRESS_HERE
+
+# Default if not set: seFkxFkXEY9JGEpCyPfCWTuPZG9WK6ucf95zvKCfsRX
 ```
 
-### 4. Get Devnet USDC
+**Note:** If you don't create a `.env` file, payments will go to the default address shown above.
+
+### 3. Get Devnet USDC
 
 The client wallet needs USDC for payments:
 
@@ -73,15 +69,11 @@ solana address -k pay-using-coinbase/client.json
 # Option 1: Use Circle's USDC faucet (easiest)
 # Visit: https://faucet.circle.com/
 # Select "Solana Devnet" and paste your address
-
-# Option 2: Use SPL Token faucet
-# Visit: https://spl-token-faucet.com/
-# Select USDC and enter your address
 ```
 
 **Important:** You typically don't need SOL in the client wallet because the facilitator pays gas fees!
 
-### 5. Run the Example
+### 4. Run the Example
 
 Start the server:
 
@@ -93,7 +85,7 @@ You should see:
 
 ```
 🚀 Starting x402 Solana Server
-💰 Recipient address: sexvB...FpZtG
+💰 Recipient address: seFkx...CfsRX
 🌐 Network: solana-devnet
 ✅ Server running at http://localhost:3000
 ```
@@ -109,16 +101,33 @@ Expected output:
 ```
 🚀 x402 Solana Client Demo
 💳 Wallet: cLYaE...FpZtG
+🌐 Server: http://localhost:3000
+
+📡 Making requests...
 
 1️⃣  Accessing public endpoint (/)...
 ✅ Success (no payment required)
+   Response: x402 Solana Server
 
 2️⃣  Accessing premium endpoint (/premium)...
+   💰 Payment required: $0.0001 USDC
+   🔄 Creating and signing transaction...
+✅ Payment successful!
+   Message: 🎉 Premium content accessed!
+   Secret: This is premium content
+   📝 Transaction: 4eEK8...44uG
+   🔗 Explorer: https://explorer.solana.com/tx/4eEK8...44uG?cluster=devnet
+
+3️⃣  Accessing expensive endpoint (/expensive)...
    💰 Payment required: $0.001 USDC
    🔄 Creating and signing transaction...
 ✅ Payment successful!
-   📝 Transaction: 4eEK8...44uG
-   🔗 Explorer: https://explorer.solana.com/tx/4eEK8...44uG?cluster=devnet
+   Message: 💎 Expensive content accessed!
+   Secret: This is very expensive premium content
+   📝 Transaction: 5fFK9...55vH
+   🔗 Explorer: https://explorer.solana.com/tx/5fFK9...55vH?cluster=devnet
+
+🎉 All requests completed successfully!
 ```
 
 ## How It Works
@@ -134,24 +143,41 @@ The server uses `x402-express` middleware that automatically:
 
 ```typescript
 import { paymentMiddleware } from "x402-express";
-import { facilitator } from "@coinbase/x402";
 
+// The middleware uses a default facilitator (can be customized - see Configuration section)
 app.use(
-  paymentMiddleware(
-    recipientAddress,
-    {
-      "GET /premium": {
-        price: "$0.001",
-        network: "solana-devnet",
-      },
+  paymentMiddleware(RECIPIENT, {
+    // Protected endpoints with different prices
+    "GET /premium": {
+      price: "$0.0001", // Price in USD (converted to USDC)
+      network: "solana-devnet",
     },
-    facilitator // Coinbase facilitator pays gas fees
-  )
+    "GET /expensive": {
+      price: "$0.001",
+      network: "solana-devnet",
+    },
+  })
 );
 
+// Protected endpoints - only accessible after payment
 app.get("/premium", (req, res) => {
-  // Only reached after successful payment
-  res.json({ secret: "Premium content!" });
+  res.json({
+    message: "🎉 Premium content accessed!",
+    data: {
+      secret: "This is premium content",
+      timestamp: new Date().toISOString(),
+    },
+  });
+});
+
+app.get("/expensive", (req, res) => {
+  res.json({
+    message: "💎 Expensive content accessed!",
+    data: {
+      secret: "This is very expensive premium content",
+      timestamp: new Date().toISOString(),
+    },
+  });
 });
 ```
 
@@ -181,7 +207,7 @@ const response = await client.get("/premium");
 2. Server → Client: 402 Payment Required
    {
      "amount": "$0.001",
-     "recipient": "sexvB...",
+     "recipient": "seFkx...",
      "network": "solana-devnet"
    }
 
@@ -199,32 +225,34 @@ const response = await client.get("/premium");
 
 ### Compared to Manual Examples (pay-in-sol, pay-in-usdc)
 
-| Feature                      | Manual Examples      | Coinbase Example    |
-| ---------------------------- | -------------------- | ------------------- |
-| **Transaction Creation**     | Manual code          | Automatic           |
-| **Transaction Verification** | Manual introspection | Facilitator handles |
-| **Transaction Submission**   | Server submits       | Facilitator submits |
-| **Gas Fees**                 | Payer needs SOL      | Facilitator pays    |
-| **Code Complexity**          | ~200 lines           | ~50 lines           |
-| **Production Ready**         | Reference only       | Production grade    |
+| Feature                      | Manual Examples      | x402 Libraries + Facilitator |
+| ---------------------------- | -------------------- | ---------------------------- |
+| **Transaction Creation**     | Manual code          | Automatic                    |
+| **Transaction Verification** | Manual introspection | Facilitator handles          |
+| **Transaction Submission**   | Server submits       | Facilitator submits          |
+| **Gas Fees**                 | Payer needs SOL      | Facilitator pays             |
+| **Code Complexity**          | ~200 lines           | ~90 lines (server)           |
+| **Production Ready**         | Reference only       | Production grade             |
 
-### Benefits of Coinbase Facilitator
+### Benefits of Using x402 Libraries with Facilitator
 
-✅ **Gasless for Users** - Users only need USDC, no SOL required
+✅ **Gasless for Users** - Users only need USDC, no SOL required (facilitator pays gas)
 ✅ **Lower Complexity** - Libraries handle all transaction logic
 ✅ **Better UX** - Users don't worry about gas or transaction details
-✅ **Scalable** - Coinbase infrastructure handles load
+✅ **Flexible** - Can use default facilitator, Coinbase's, or your own
 ✅ **Maintained** - Official libraries receive updates
 
 ### Trade-offs
 
-⚠️ **Requires CDP Account** - Must register and get API keys
-⚠️ **Third-party Dependency** - Relies on Coinbase's service
-⚠️ **Less Customization** - Fixed payment flow and verification
+⚠️ **Third-party Dependency** - Relies on facilitator service. Facilitator can run out of funds
+⚠️ **Less Control** - Fixed payment flow and verification (unless using custom facilitator)
+⚠️ **Network Requirements** - Depends on facilitator service availability
 
 ## Security Features
 
-### Coinbase Facilitator Handles
+### Facilitator Service Handles
+
+The facilitator service (default, Coinbase, or custom) provides:
 
 1. **Transaction Validation**
 
@@ -256,16 +284,16 @@ Configure different prices for different endpoints:
 
 ```typescript
 paymentMiddleware(recipient, {
-  "GET /basic": {
+  "GET /premium": {
+    price: "$0.0001",
+    network: "solana-devnet",
+  },
+  "GET /expensive": {
     price: "$0.001",
     network: "solana-devnet",
   },
-  "GET /premium": {
-    price: "$0.01",
-    network: "solana-devnet",
-  },
   "POST /api/data": {
-    price: "$0.05",
+    price: "$0.01",
     network: "solana-devnet",
   },
 });
@@ -273,11 +301,20 @@ paymentMiddleware(recipient, {
 
 ### Custom Facilitator (Advanced)
 
-You can configure your own facilitator instead of Coinbase's:
+**Default Behavior:** When no facilitator is specified, `x402-express` uses a built-in default facilitator that handles transaction verification and submission. This example uses the default facilitator.
+
+**Using Coinbase's Facilitator:** You can explicitly use Coinbase's facilitator service (requires CDP API keys):
 
 ```typescript
-import { createFacilitatorConfig } from "@coinbase/x402";
+import { facilitator } from "@coinbase/x402";
 
+// Requires CDP_API_KEY_ID and CDP_API_KEY_SECRET in environment
+app.use(paymentMiddleware(recipient, routes, facilitator));
+```
+
+**Custom Facilitator:** You can also implement your own facilitator for full control:
+
+```typescript
 const customFacilitator = {
   url: "https://your-facilitator.com",
   createAuthHeaders: async () => ({
@@ -298,7 +335,7 @@ Change network from devnet to mainnet:
 
 ```typescript
 "GET /premium": {
-  price: "$0.001",
+  price: "$0.0001",
   network: "solana", // mainnet
 }
 ```
@@ -307,37 +344,31 @@ Change network from devnet to mainnet:
 
 Mainnet USDC mint: `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`
 
-### 3. Configure CDP for Production
+### 3. Security Checklist
 
-Update `.env`:
-
-```bash
-# Production CDP credentials (not test/sandbox)
-CDP_API_KEY_ID=production_key_id
-CDP_API_KEY_SECRET=production_key_secret
-```
-
-### 4. Security Checklist
-
-- [ ] Use production CDP API keys
 - [ ] Enable HTTPS on your server
 - [ ] Set up proper logging and monitoring
 - [ ] Configure rate limiting on endpoints
 - [ ] Test with small amounts first
-- [ ] Monitor facilitator usage/costs
+- [ ] Monitor facilitator service reliability
 - [ ] Have fallback error handling
+- [ ] Consider using a custom facilitator for production
 
 ## Troubleshooting
 
 ### "Failed to get supported payment kinds: Unauthorized"
 
-**Cause:** CDP API keys not configured or invalid
+**Cause:** Using Coinbase's facilitator without proper authentication
 
 **Solution:**
 
-1. Check `.env` file exists with `CDP_API_KEY_ID` and `CDP_API_KEY_SECRET`
-2. Verify keys are correct from https://portal.cdp.coinbase.com/
+This example uses the default facilitator. If you're explicitly using Coinbase's facilitator (`import { facilitator } from "@coinbase/x402"`), you'll need CDP API keys:
+
+1. Create `.env` file with `CDP_API_KEY_ID` and `CDP_API_KEY_SECRET`
+2. Get keys from https://portal.cdp.coinbase.com/
 3. Ensure keys are for the correct environment (sandbox vs production)
+
+**Alternative:** Use the default facilitator (remove the `facilitator` parameter from `paymentMiddleware`)
 
 ### "Insufficient funds" or "Account not found"
 
@@ -348,7 +379,6 @@ CDP_API_KEY_SECRET=production_key_secret
 ```bash
 # Get devnet USDC
 # Visit: https://faucet.circle.com/ (select Solana Devnet)
-# Or: https://spl-token-faucet.com/ (select USDC)
 ```
 
 ### Client shows "socket hang up" or "ECONNRESET"
@@ -375,16 +405,13 @@ spl-token balance 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
   --owner <YOUR_WALLET_ADDRESS>
 ```
 
-### Facilitator rate limiting
-
-**Cause:** Too many requests to facilitator
-
 **Solution:**
 
 - Implement client-side rate limiting
 - Add delays between test requests
-- Check CDP dashboard for limits
-- Consider upgrading CDP plan for production
+- If using Coinbase facilitator: Check CDP dashboard for limits
+- Consider implementing your own facilitator for higher limits
+- Add retry logic with exponential backoff
 
 ## Resources
 
@@ -394,22 +421,24 @@ spl-token balance 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU \
 - **Solana Explorer (Devnet):** https://explorer.solana.com/?cluster=devnet
 - **USDC Devnet Faucet:** https://faucet.circle.com/
 
-## Why Use Coinbase Facilitator?
+## Why Use x402 Libraries with Facilitator?
 
 ### Best For:
 
-- **Production applications** requiring reliability
-- **Consumer-facing apps** where users shouldn't worry about gas
+- **Production applications** requiring reliability and gasless payments
+- **Consumer-facing apps** where users shouldn't worry about gas fees
 - **Quick prototypes** needing minimal setup
-- **Projects** that can depend on third-party services
+- **Projects** that benefit from managed transaction submission
+- **Teams** wanting to focus on business logic, not payment infrastructure
 
 ### Consider Manual Implementation If:
 
-- Need full control over transaction flow
+- Need full control over transaction flow and verification
 - Want to minimize external dependencies
 - Have specific verification requirements
-- Running on networks facilitator doesn't support
+- Running on networks the facilitator doesn't support
+- Want to understand x402 internals deeply
 
 ---
 
-**Ready to build?** This example is production-ready with proper CDP configuration! 🚀
+**Ready to build?** This example works out of the box with the default facilitator! 🚀
