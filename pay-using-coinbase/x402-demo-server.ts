@@ -4,16 +4,10 @@
  * This server uses the official x402-express middleware to handle
  * micropayments in USDC on Solana devnet.
  *
- * Setup:
- * 1. npm install express x402-express @coinbase/x402 dotenv
- * 2. Create .env with: RECIPIENT_ADDRESS=your_solana_address
- * 3. npm install -D @types/express tsx
- * 4. Run: tsx x402-demo-server.ts
  */
 
 import express from "express";
 import { paymentMiddleware, type SolanaAddress } from "x402-express";
-import { facilitator } from "@coinbase/x402";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -40,13 +34,13 @@ app.use(
   paymentMiddleware(RECIPIENT, {
     // Protected endpoint: requires $0.001 USDC payment
     "GET /premium": {
-      price: "$0.001", // Price in USD (converted to USDC)
+      price: "$0.0001", // Price in USD (converted to USDC)
       network: "solana-devnet", // Solana devnet
     },
 
     // Another endpoint with different price
     "GET /expensive": {
-      price: "$0.01",
+      price: "$0.001",
       network: "solana-devnet",
     },
   })
@@ -79,8 +73,8 @@ app.get("/", (req, res) => {
     message: "x402 Solana Server",
     endpoints: {
       "/": "Public - no payment required",
-      "/premium": "Protected - $0.001 USDC payment required",
-      "/expensive": "Protected - $0.01 USDC payment required",
+      "/premium": "Protected - $0.0001 USDC payment required",
+      "/expensive": "Protected - $0.001 USDC payment required",
     },
   });
 });
@@ -89,7 +83,7 @@ app.listen(PORT, () => {
   console.log(`\n✅ Server running at http://localhost:${PORT}`);
   console.log(`\n📍 Endpoints:`);
   console.log(`   GET /          - Public (no payment)`);
-  console.log(`   GET /premium   - $0.001 USDC payment required`);
-  console.log(`   GET /expensive - $0.01 USDC payment required`);
+  console.log(`   GET /premium   - $0.0001 USDC payment required`);
+  console.log(`   GET /expensive - $0.001 USDC payment required`);
   console.log(`\n💡 Test with the client: tsx x402-demo-client.ts\n`);
 });

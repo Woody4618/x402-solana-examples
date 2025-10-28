@@ -156,15 +156,6 @@ x402 implementation using Solana Actions (Blinks).
     └── ...
 ```
 
-## Installation
-
-```bash
-# Clone and install dependencies
-git clone <your-repo>
-cd 402-minimal
-npm install
-```
-
 ## Prerequisites
 
 - Node.js 18+
@@ -193,9 +184,7 @@ npm run coinbase:client   # Run Coinbase x402 client
 
 - [x402 Specification](https://x402.org)
 - [Coinbase x402 GitHub](https://github.com/coinbase/x402)
-- [Coinbase Developer Platform](https://portal.cdp.coinbase.com/)
 - [Solana Documentation](https://docs.solana.com)
-- [Solana Pay Specification](https://docs.solanapay.com)
 
 ## Contributing
 
