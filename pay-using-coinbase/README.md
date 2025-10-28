@@ -58,10 +58,6 @@ The Coinbase facilitator requires API credentials from Coinbase Developer Platfo
 Create a `.env` file in the project root:
 
 ```bash
-# Coinbase Developer Platform credentials
-CDP_API_KEY_ID=your_api_key_id_here
-CDP_API_KEY_SECRET=your_api_key_secret_here
-
 # Optional: customize recipient address
 RECIPIENT_ADDRESS=seFkxFkXEY9JGEpCyPfCWTuPZG9WK6ucf95zvKCfsRX
 ```
